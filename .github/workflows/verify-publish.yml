@@ -3,6 +3,7 @@ name: Build and Push Docker Image
 on:
   push:
     branches: ["main"]
+    tags: ["v*"]
   workflow_dispatch:
 
 env:
@@ -10,8 +11,39 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push:
-    if: github.repository == 'Ideamoon/jiangshan-map'
+  # 无论 main push 还是 tag push，都先构建验证
+  build:
+    name: Build (no push)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Lowercase image name
+        run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build only (verify Dockerfile)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:verify
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # 只有推标签时才发布镜像
+  push:
+    name: Push to GHCR
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -41,8 +73,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
+            type=ref,event=tag
             type=raw,value=latest
-            type=sha,prefix=sha-
 
       - name: Build and push
         uses: docker/build-push-action@v6
