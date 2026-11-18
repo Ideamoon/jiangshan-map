@@ -11,7 +11,7 @@ env:
 
 jobs:
   build-and-push:
-    if: github.repository == 'DeanChensj/jiangshan-map'
+    if: github.repository == 'Ideamoon/jiangshan-map'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
